@@ -80,18 +80,19 @@ end
 
 local function AA_Party_GUI(openGUI)
     if not showGUI then return end
-    imgui.SetNextWindowSize(180, 480, ImGuiCond.Appearing)
+    imgui.SetNextWindowSize(185, 480, ImGuiCond.Appearing)
     local show = false
     openGUI, show = imgui.Begin("AA Party##AA_Party", openGUI, ImGuiWindowFlags.None)
     if show then
         if #groupData > 0 then
             for i = 1, #groupData do
                 if groupData[i] ~= nil then
+                    ImGui.BeginGroup()
+                    ImGui.PushID(groupData[i].Name)
                     ImGui.SeparatorText("%s (%s)", groupData[i].Name, groupData[i].Level)
                     ImGui.PushStyleColor(ImGuiCol.PlotHistogram,ImVec4(0.2, 0.9, 0.9, 0.5))
                     ImGui.ProgressBar(groupData[i].XP/100,ImVec2(165,8),"##AAXP"..groupData[i].Name)
                     ImGui.PopStyleColor()
-                    ImGui.SetItemTooltip("%.2f %%\nUnspent: %d\nSpent: %d\nTotal: %d",groupData[i].XP, groupData[i].Pts, groupData[i].PtsSpent, groupData[i].PtsTotal)
                     if ImGui.Button("<##Decrease"..groupData[i].Name) then
                         Actor:send({mailbox='aa_party'}, {PctExp = PctAA,Level = MeLevel, DoWho = groupData[i].Name, DoWhat = 'Less',Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
                     end
@@ -112,6 +113,10 @@ local function AA_Party_GUI(openGUI)
                     if ImGui.Button(">##Increase"..groupData[i].Name) then
                         Actor:send({mailbox='aa_party'}, {PctExp = PctAA, Level = MeLevel, DoWho = groupData[i].Name, DoWhat = 'More',Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
                     end
+                    ImGui.PopID()
+                    ImGui.EndGroup()
+                    ImGui.SetItemTooltip("%s\n%.2f %%\nUnspent: %d\nSpent: %d\nTotal: %d",groupData[i].Name,groupData[i].XP, groupData[i].Pts, groupData[i].PtsSpent, groupData[i].PtsTotal)
+
                 end
             end
         end
@@ -126,7 +131,7 @@ local function checkArgs(args)
             showGUI = true
             print('\ayAA Party:\ao Setting \atDriver\ax Mode. UI will be displayed.')
         elseif args[1] == 'client' then
-            showGUI = false
+            showGUI = true
             print('\ayAA Party:\ao Setting \atClient\ax Mode. UI will not be displayed.')
         end
     else
