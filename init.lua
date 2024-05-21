@@ -19,7 +19,9 @@ local RUNNING = false
 local showGUI = false
 local MeLevel = mq.TLO.Me.Level()
 local PctExp = mq.TLO.Me.PctExp()
-
+local expand = {}
+local winFlags = bit32.bor(ImGuiWindowFlags.None)
+local aSize = true
 --create mailbox for actors to send messages to
 function RegisterActor()
     Actor = actors.register('aa_party', function(message)
@@ -114,9 +116,17 @@ end
 local function AA_Party_GUI(openGUI)
     if not showGUI then return end
     imgui.SetNextWindowSize(185, 480, ImGuiCond.Appearing)
+    if aSize then
+        winFlags = bit32.bor(ImGuiWindowFlags.AlwaysAutoResize)
+    else
+        winFlags = bit32.bor(ImGuiWindowFlags.None)
+    end
     local show = false
-    openGUI, show = imgui.Begin("AA Party##AA_Party", openGUI, ImGuiWindowFlags.None)
+    openGUI, show = imgui.Begin("AA Party##AA_Party", openGUI, winFlags)
     if show then
+        if ImGui.IsMouseReleased(1) then
+            aSize = not aSize
+        end
         if #groupData > 0 then
             for i = 1, #groupData do
                 if groupData[i] ~= nil then
@@ -129,29 +139,14 @@ local function AA_Party_GUI(openGUI)
                     ImGui.PushStyleColor(ImGuiCol.PlotHistogram,ImVec4(0.2, 0.9, 0.9, 0.5))
                     ImGui.ProgressBar(groupData[i].PctExpAA/100,ImVec2(165,5),"##AAXP"..groupData[i].Name)
                     ImGui.PopStyleColor()
-                    if ImGui.Button("<##Decrease"..groupData[i].Name) then
-                        Actor:send({mailbox='aa_party'}, {PctExp = PctExp, PctExpAA = PctAA, Level = MeLevel, DoWho = groupData[i].Name, DoWhat = 'Less',Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
-                    end
-                    ImGui.SameLine()
-                    local tmp = groupData[i].Setting
-                    tmp = tmp:gsub("%%", "")
-                    local AA_Set = tonumber(tmp) or 0
-                    -- this is for my OCD on spacing
-                    if AA_Set < 10 then
-                        ImGui.Text("\tAA Setting:   %d", AA_Set)
-                    elseif AA_Set < 100 then
-                        ImGui.Text("\tAA Setting:  %d", AA_Set)
-                    else
-                        ImGui.Text("\tAA Setting: %d", AA_Set)
-                    end
-                    ImGui.SameLine()
-                    ImGui.SetCursorPosX(158)
-                    if ImGui.Button(">##Increase"..groupData[i].Name) then
-                        Actor:send({mailbox='aa_party'}, {PctExp = PctExp, PctExpAA = PctAA, Level = MeLevel, DoWho = groupData[i].Name, DoWhat = 'More',Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
-                    end
                     ImGui.PopID()
                     ImGui.EndGroup()
+                    if expand[groupData[i].Name] == nil then expand[groupData[i].Name] = false end
                     if ImGui.IsItemHovered() then
+                        if ImGui.IsMouseReleased(0) then
+                            expand[groupData[i].Name] = not expand[groupData[i].Name]
+                        end
+
                         ImGui.BeginTooltip()
                         local tTipTxt = "\t\t"..groupData[i].Name
                         ImGui.TextColored(ImVec4(1, 1, 1, 1),tTipTxt)
@@ -167,6 +162,28 @@ local function AA_Party_GUI(openGUI)
                         tTipTxt = string.format("Total:\t\t%d",groupData[i].PtsTotal)
                         ImGui.TextColored(ImVec4(0.8, 0.0, 0.8, 1.0),tTipTxt)
                         ImGui.EndTooltip()
+                    end
+                    if expand[groupData[i].Name] then
+                        if ImGui.Button("<##Decrease"..groupData[i].Name) then
+                            Actor:send({mailbox='aa_party'}, {PctExp = PctExp, PctExpAA = PctAA, Level = MeLevel, DoWho = groupData[i].Name, DoWhat = 'Less',Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
+                        end
+                        ImGui.SameLine()
+                        local tmp = groupData[i].Setting
+                        tmp = tmp:gsub("%%", "")
+                        local AA_Set = tonumber(tmp) or 0
+                        -- this is for my OCD on spacing
+                        if AA_Set < 10 then
+                            ImGui.Text("\tAA Setting:   %d", AA_Set)
+                        elseif AA_Set < 100 then
+                            ImGui.Text("\tAA Setting:  %d", AA_Set)
+                        else
+                            ImGui.Text("\tAA Setting: %d", AA_Set)
+                        end
+                        ImGui.SameLine()
+                        ImGui.SetCursorPosX(158)
+                        if ImGui.Button(">##Increase"..groupData[i].Name) then
+                            Actor:send({mailbox='aa_party'}, {PctExp = PctExp, PctExpAA = PctAA, Level = MeLevel, DoWho = groupData[i].Name, DoWhat = 'More',Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
+                        end
                     end
                 end
             end
@@ -238,6 +255,7 @@ end
 
 local function mainLoop()
     while RUNNING do
+        mq.delay(10000, function () return mq.TLO.Me.Zoning() == false end )
         getMyAA()
         mq.delay(10)
     end
