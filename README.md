@@ -4,7 +4,7 @@ By Grimmier
 
 ## Description: 
 
-This script is designed to help manage AA experience for a group of characters using Actors over DanNet.
+This script is designed to help manage AA experience for a group of characters using Actors
 
 It will display the current Percent AA, as well as the Slider Value for AA XP Split.
 
