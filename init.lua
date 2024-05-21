@@ -19,7 +19,7 @@ local groupData = {}
 local RUNNING = false
 local openGUI = true
 local showGUI = false
-
+local MeLevel = mq.TLO.Me.Level()
 --create mailbox for actors to send messages to
 function RegisterActor()
     Actor = actors.register('aa_party', function(message)
@@ -30,6 +30,7 @@ function RegisterActor()
         local pts = MemberEntry.Pts or 0
         local ptsTotal = MemberEntry.PtsTotal or 0
         local ptsSpent = MemberEntry.PtsSpent or 0
+        local lvlWho = MemberEntry.Level or 0
         local found = false
         if MemberEntry.DoWho ~= nil then
             if MemberEntry.DoWho == ME then
@@ -48,12 +49,13 @@ function RegisterActor()
             groupData[i].Pts = pts
             groupData[i].PtsTotal = ptsTotal
             groupData[i].PtsSpent = ptsSpent
+            groupData[i].Level = lvlWho
             found = true
             break
             end
         end
         if not found then
-            table.insert(groupData, {Name = who, XP = aaXP, DoWho = nil, DoWhat = nil, Setting = aaSetting, Pts = pts, PtsTotal = ptsTotal, PtsSpent = ptsSpent})
+            table.insert(groupData, {Name = who,Level = lvlWho, XP = aaXP, DoWho = nil, DoWhat = nil, Setting = aaSetting, Pts = pts, PtsTotal = ptsTotal, PtsSpent = ptsSpent})
         end
     end)
 end
@@ -64,13 +66,15 @@ local function getMyAA()
     local tmpPts = mq.TLO.Me.AAPoints() or 0
     local tmpPtsTotal = mq.TLO.Me.AAPointsTotal() or 0
     local tmpPtsSpent = mq.TLO.Me.AAPointsSpent() or 0
+    local tmpLvl = mq.TLO.Me.Level() or 0
     if (PctAA ~= tmpExpAA or SettingAA ~= tmpSettingAA or PtsAA ~= tmpPts or
-        PtsSpent ~= tmpPtsSpent or PtsTotal ~= tmpPtsTotal) then
+        PtsSpent ~= tmpPtsSpent or PtsTotal ~= tmpPtsTotal or tmpLvl ~= MeLevel) then
             PctAA = tmpExpAA
             SettingAA = tmpSettingAA
             PtsAA = tmpPts
             PtsTotal = tmpPtsTotal
             PtsSpent = tmpPtsSpent
+            MeLevel = tmpLvl
     end
 end
 
@@ -83,13 +87,13 @@ local function AA_Party_GUI(openGUI)
         if #groupData > 0 then
             for i = 1, #groupData do
                 if groupData[i] ~= nil then
-                    ImGui.SeparatorText("%s", groupData[i].Name)
+                    ImGui.SeparatorText("%s (%s)", groupData[i].Name, groupData[i].Level)
                     ImGui.PushStyleColor(ImGuiCol.PlotHistogram,ImVec4(0.2, 0.9, 0.9, 0.5))
                     ImGui.ProgressBar(groupData[i].XP/100,ImVec2(165,8),"##AAXP"..groupData[i].Name)
                     ImGui.PopStyleColor()
                     ImGui.SetItemTooltip("%.2f %%\nUnspent: %d\nSpent: %d\nTotal: %d",groupData[i].XP, groupData[i].Pts, groupData[i].PtsSpent, groupData[i].PtsTotal)
                     if ImGui.Button("<##Decrease"..groupData[i].Name) then
-                        Actor:send({mailbox='aa_party'}, {PctExp = PctAA, DoWho = groupData[i].Name, DoWhat = 'Less',Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
+                        Actor:send({mailbox='aa_party'}, {PctExp = PctAA,Level = MeLevel, DoWho = groupData[i].Name, DoWhat = 'Less',Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
                     end
                     ImGui.SameLine()
                     local tmp = groupData[i].Setting
@@ -106,7 +110,7 @@ local function AA_Party_GUI(openGUI)
 
                     ImGui.SameLine(158)
                     if ImGui.Button(">##Increase"..groupData[i].Name) then
-                        Actor:send({mailbox='aa_party'}, {PctExp = PctAA, DoWho = groupData[i].Name, DoWhat = 'More',Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
+                        Actor:send({mailbox='aa_party'}, {PctExp = PctAA, Level = MeLevel, DoWho = groupData[i].Name, DoWhat = 'More',Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
                     end
                 end
             end
@@ -119,10 +123,10 @@ local args = {...}
 local function checkArgs(args)
     if #args > 0 then
         if args[1] == 'driver' then
-            showGUI = false
+            showGUI = true
             print('\ayAA Party:\ao Setting \atDriver\ax Mode. UI will be displayed.')
         elseif args[1] == 'client' then
-            showGUI = true
+            showGUI = false
             print('\ayAA Party:\ao Setting \atClient\ax Mode. UI will not be displayed.')
         end
     else
@@ -160,14 +164,14 @@ local function init()
     RegisterActor()
     getMyAA()
     --send message to the mailbox from this character
-    Actor:send({mailbox='aa_party'}, {PctExp = PctAA, Setting = SettingAA, DoWho = nil, DoWhat = nil, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
+    Actor:send({mailbox='aa_party'}, {PctExp = PctAA,Level = MeLevel, Setting = SettingAA, DoWho = nil, DoWhat = nil, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
     RUNNING = true
 end
 
 local function mainLoop()
     while RUNNING do
         getMyAA()
-        Actor:send({mailbox='aa_party'}, {PctExp = PctAA, Setting = SettingAA, DoWho = nil, DoWhat = nil, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
+        Actor:send({mailbox='aa_party'}, {PctExp = PctAA,Level = MeLevel, Setting = SettingAA, DoWho = nil, DoWhat = nil, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
         mq.delay(1000) -- equivalent to '1s'
         mq.doevents()
     end
