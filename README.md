@@ -16,14 +16,14 @@ Getting Started:
 
 ## starting commands:
 
-* /lua run aaparty client  Opens with GUI off for client mode.
-* /lua run aaparty driver Opens with the GUI Enabled for the Driver.
-* /lua run aaparty Defaults to Driver Mode
+* ```/lua run aaparty client``` Opens with GUI off for client mode.
+* ```/lua run aaparty driver``` Opens with the GUI Enabled for the Driver.
+* ```/lua run aaparty``` Defaults to Driver Mode
 
 ## Bind Commands:
 
-* /aaparty gui  Toggles the GUI in either mode.
-* /aaparty exit Quits the Script.
+* ```/aaparty gui```  Toggles the GUI in either mode.
+* ```/aaparty exit``` Quits the Script.
 
 https://github.com/grimmier378/aaparty/assets/124466615/366810ca-2806-4aba-b79e-e5652ab619bf
 
