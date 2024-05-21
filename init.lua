@@ -24,6 +24,19 @@ local PctExp = mq.TLO.Me.PctExp()
 function RegisterActor()
     Actor = actors.register('aa_party', function(message)
     local MemberEntry = message()
+        if MemberEntry.Hello then
+            Actor:send({mailbox='aa_party'}, {PctExp = PctExp,
+            PctExpAA = PctAA,
+            Level = MeLevel,
+            Setting = SettingAA,
+            DoWho = nil,
+            DoWhat = nil,
+            Name = ME,
+            Pts = PtsAA,
+            PtsTotal = PtsTotal,
+            PtsSpent = PtsSpent})
+            MemberEntry.Hello = false
+        end
         local aaXP = MemberEntry.PctExpAA or 0
         local aaSetting = MemberEntry.Setting or '0'
         local who = MemberEntry.Name
@@ -64,6 +77,7 @@ function RegisterActor()
 end
 
 local function getMyAA()
+    local changed = false
     local tmpExpAA = mq.TLO.Me.PctAAExp() or 0
     local tmpSettingAA = mq.TLO.Window("AAWindow/AAW_PercentCount").Text() or '0'
     local tmpPts = mq.TLO.Me.AAPoints() or 0
@@ -80,6 +94,20 @@ local function getMyAA()
             PtsSpent = tmpPtsSpent
             MeLevel = tmpLvl
             PctExp = tmpPctXP
+            changed = true
+    end
+    if changed then
+        Actor:send({mailbox='aa_party'}, {PctExp = PctExp,
+        PctExpAA = PctAA,
+        Level = MeLevel,
+        Setting = SettingAA,
+        DoWho = nil,
+        DoWhat = nil,
+        Name = ME,
+        Pts = PtsAA,
+        PtsTotal = PtsTotal,
+        PtsSpent = PtsSpent,
+        Hello = false})
     end
 end
 
@@ -125,18 +153,18 @@ local function AA_Party_GUI(openGUI)
                     ImGui.EndGroup()
                     if ImGui.IsItemHovered() then
                         ImGui.BeginTooltip()
-                        local tTipTxt = groupData[i].Name
+                        local tTipTxt = "\t\t"..groupData[i].Name
                         ImGui.TextColored(ImVec4(1, 1, 1, 1),tTipTxt)
                         ImGui.Separator()
-                        tTipTxt = string.format("Exp:%.2f %%",groupData[i].PctExp)
+                        tTipTxt = string.format("Exp:\t\t\t%.2f %%",groupData[i].PctExp)
                         ImGui.TextColored(ImVec4(1, 0.9, 0.4, 1),tTipTxt)
-                        tTipTxt = string.format("AA Exp:%.2f %%",groupData[i].PctExpAA)
+                        tTipTxt = string.format("AA Exp: \t%.2f %%",groupData[i].PctExpAA)
                         ImGui.TextColored(ImVec4(0.2, 0.9, 0.9, 1),tTipTxt)
-                        tTipTxt = string.format("Unspent: %d",groupData[i].Pts)
+                        tTipTxt = string.format("Avail:  \t\t%d",groupData[i].Pts)
                         ImGui.TextColored(ImVec4(0, 1, 0, 1),tTipTxt)
-                        tTipTxt = string.format("Spent: %d",groupData[i].PtsSpent)
+                        tTipTxt = string.format("Spent:\t\t%d",groupData[i].PtsSpent)
                         ImGui.TextColored(ImVec4(0.9, 0.4, 0.4, 1),tTipTxt)
-                        tTipTxt = string.format("Total: %d",groupData[i].PtsTotal)
+                        tTipTxt = string.format("Total:\t\t%d",groupData[i].PtsTotal)
                         ImGui.TextColored(ImVec4(0.8, 0.0, 0.8, 1.0),tTipTxt)
                         ImGui.EndTooltip()
                     end
@@ -154,7 +182,7 @@ local function checkArgs(args)
             showGUI = true
             print('\ayAA Party:\ao Setting \atDriver\ax Mode. UI will be displayed.')
         elseif args[1] == 'client' then
-            showGUI = true
+            showGUI = false
             print('\ayAA Party:\ao Setting \atClient\ax Mode. UI will not be displayed.')
         end
     else
@@ -186,11 +214,12 @@ local function processCommand(...)
 end
 
 local function init()
+    mq.delay(10000, function () return mq.TLO.Me.Zoning() == false end )
     checkArgs(args)
     mq.bind('/aaparty', processCommand)
-    mq.imgui.init('AA_Party', AA_Party_GUI)
     RegisterActor()
     getMyAA()
+    mq.delay(5)
     --send message to the mailbox from this character
     Actor:send({mailbox='aa_party'}, {PctExp = PctExp,
         PctExpAA = PctAA,
@@ -201,24 +230,16 @@ local function init()
         Name = ME,
         Pts = PtsAA,
         PtsTotal = PtsTotal,
-        PtsSpent = PtsSpent})
+        PtsSpent = PtsSpent,
+        Hello = true,})
     RUNNING = true
+    mq.imgui.init('AA_Party', AA_Party_GUI)
 end
 
 local function mainLoop()
     while RUNNING do
         getMyAA()
-        Actor:send({mailbox='aa_party'}, {PctExp = PctExp,
-            PctExpAA = PctAA,
-            Level = MeLevel,
-            Setting = SettingAA,
-            DoWho = nil,
-            DoWhat = nil,
-            Name = ME,
-            Pts = PtsAA,
-            PtsTotal = PtsTotal,
-            PtsSpent = PtsSpent})
-        mq.delay(1000)
+        mq.delay(10)
     end
     mq.exit()
 end
