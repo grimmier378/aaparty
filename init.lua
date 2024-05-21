@@ -19,14 +19,16 @@ local RUNNING = false
 local openGUI = true
 local showGUI = false
 local MeLevel = mq.TLO.Me.Level()
+local PctExp = mq.TLO.Me.PctExp()
 
 --create mailbox for actors to send messages to
 function RegisterActor()
     Actor = actors.register('aa_party', function(message)
     local MemberEntry = message()
-        local aaXP = MemberEntry.PctExp or 0
+        local aaXP = MemberEntry.PctExpAA or 0
         local aaSetting = MemberEntry.Setting or '0'
         local who = MemberEntry.Name
+        local pctXP = MemberEntry.PctExp or 0
         local pts = MemberEntry.Pts or 0
         local ptsTotal = MemberEntry.PtsTotal or 0
         local ptsSpent = MemberEntry.PtsSpent or 0
@@ -44,7 +46,8 @@ function RegisterActor()
         end
         for i = 1, #groupData do
             if groupData[i].Name == who then
-            groupData[i].PctExp = aaXP
+            groupData[i].PctExpAA = aaXP
+            groupData[i].PctExp = pctXP
             groupData[i].Setting = aaSetting
             groupData[i].Pts = pts
             groupData[i].PtsTotal = ptsTotal
@@ -56,7 +59,7 @@ function RegisterActor()
             end
         end
         if not found then
-            table.insert(groupData, {Name = who,Level = lvlWho, PctExp = aaXP, DoWho = nil, DoWhat = nil, Setting = aaSetting, Pts = pts, PtsTotal = ptsTotal, PtsSpent = ptsSpent})
+            table.insert(groupData, {Name = who,Level = lvlWho, PctExpAA = aaXP, PctExp = pctXP, DoWho = nil, DoWhat = nil, Setting = aaSetting, Pts = pts, PtsTotal = ptsTotal, PtsSpent = ptsSpent})
         end
     end)
 end
@@ -67,15 +70,17 @@ local function getMyAA()
     local tmpPts = mq.TLO.Me.AAPoints() or 0
     local tmpPtsTotal = mq.TLO.Me.AAPointsTotal() or 0
     local tmpPtsSpent = mq.TLO.Me.AAPointsSpent() or 0
+    local tmpPctXP = mq.TLO.Me.PctExp() or 0
     local tmpLvl = mq.TLO.Me.Level() or 0
     if (PctAA ~= tmpExpAA or SettingAA ~= tmpSettingAA or PtsAA ~= tmpPts or
-        PtsSpent ~= tmpPtsSpent or PtsTotal ~= tmpPtsTotal or tmpLvl ~= MeLevel) then
+        PtsSpent ~= tmpPtsSpent or PtsTotal ~= tmpPtsTotal or tmpLvl ~= MeLevel or tmpPctXP ~= PctExp) then
             PctAA = tmpExpAA
             SettingAA = tmpSettingAA
             PtsAA = tmpPts
             PtsTotal = tmpPtsTotal
             PtsSpent = tmpPtsSpent
             MeLevel = tmpLvl
+            PctExp = tmpPctXP
     end
 end
 
@@ -91,11 +96,14 @@ local function AA_Party_GUI(openGUI)
                     ImGui.BeginGroup()
                     ImGui.PushID(groupData[i].Name)
                     ImGui.SeparatorText("%s (%s)", groupData[i].Name, groupData[i].Level)
+                    ImGui.PushStyleColor(ImGuiCol.PlotHistogram,ImVec4(1, 0.9, 0.4, 0.5))
+                    ImGui.ProgressBar(groupData[i].PctExp/100,ImVec2(165,5),"##PctXP"..groupData[i].Name)
+                    ImGui.PopStyleColor()
                     ImGui.PushStyleColor(ImGuiCol.PlotHistogram,ImVec4(0.2, 0.9, 0.9, 0.5))
-                    ImGui.ProgressBar(groupData[i].PctExp/100,ImVec2(165,8),"##AAXP"..groupData[i].Name)
+                    ImGui.ProgressBar(groupData[i].PctExpAA/100,ImVec2(165,5),"##AAXP"..groupData[i].Name)
                     ImGui.PopStyleColor()
                     if ImGui.Button("<##Decrease"..groupData[i].Name) then
-                        Actor:send({mailbox='aa_party'}, {PctExp = PctAA,Level = MeLevel, DoWho = groupData[i].Name, DoWhat = 'Less',Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
+                        Actor:send({mailbox='aa_party'}, {PctExp = PctExp, PctExpAA = PctAA, Level = MeLevel, DoWho = groupData[i].Name, DoWhat = 'Less',Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
                     end
                     ImGui.SameLine()
                     local tmp = groupData[i].Setting
@@ -112,12 +120,27 @@ local function AA_Party_GUI(openGUI)
                     ImGui.SameLine()
                     ImGui.SetCursorPosX(158)
                     if ImGui.Button(">##Increase"..groupData[i].Name) then
-                        Actor:send({mailbox='aa_party'}, {PctExp = PctAA, Level = MeLevel, DoWho = groupData[i].Name, DoWhat = 'More',Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
+                        Actor:send({mailbox='aa_party'}, {PctExp = PctExp, PctExpAA = PctAA, Level = MeLevel, DoWho = groupData[i].Name, DoWhat = 'More',Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
                     end
                     ImGui.PopID()
                     ImGui.EndGroup()
-                    ImGui.SetItemTooltip("%s\n%.2f %%\nUnspent: %d\nSpent: %d\nTotal: %d",groupData[i].Name,groupData[i].PctExp, groupData[i].Pts, groupData[i].PtsSpent, groupData[i].PtsTotal)
-
+                    if ImGui.IsItemHovered() then
+                        ImGui.BeginTooltip()
+                        local tTipTxt = groupData[i].Name
+                        ImGui.TextColored(ImVec4(1, 1, 1, 1),tTipTxt)
+                        ImGui.Separator()
+                        tTipTxt = string.format("Exp:%.2f %%",groupData[i].PctExp)
+                        ImGui.TextColored(ImVec4(1, 0.9, 0.4, 1),tTipTxt)
+                        tTipTxt = string.format("AA Exp:%.2f %%",groupData[i].PctExpAA)
+                        ImGui.TextColored(ImVec4(0.2, 0.9, 0.9, 1),tTipTxt)
+                        tTipTxt = string.format("Unspent: %d",groupData[i].Pts)
+                        ImGui.TextColored(ImVec4(0, 1, 0, 1),tTipTxt)
+                        tTipTxt = string.format("Spent: %d",groupData[i].PtsSpent)
+                        ImGui.TextColored(ImVec4(0.9, 0.4, 0.4, 1),tTipTxt)
+                        tTipTxt = string.format("Total: %d",groupData[i].PtsTotal)
+                        ImGui.TextColored(ImVec4(0.8, 0.0, 0.8, 1.0),tTipTxt)
+                        ImGui.EndTooltip()
+                    end
                 end
             end
         end
@@ -170,7 +193,8 @@ local function init()
     RegisterActor()
     getMyAA()
     --send message to the mailbox from this character
-    Actor:send({mailbox='aa_party'}, {PctExp = PctAA,
+    Actor:send({mailbox='aa_party'}, {PctExp = PctExp,
+        PctExpAA = PctAA,
         Level = MeLevel,
         Setting = SettingAA,
         DoWho = nil,
@@ -185,7 +209,8 @@ end
 local function mainLoop()
     while RUNNING do
         getMyAA()
-        Actor:send({mailbox='aa_party'}, {PctExp = PctAA,
+        Actor:send({mailbox='aa_party'}, {PctExp = PctExp,
+            PctExpAA = PctAA,
             Level = MeLevel,
             Setting = SettingAA,
             DoWho = nil,
