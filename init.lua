@@ -18,6 +18,7 @@ local Actor -- preloaded variable outside of the function
 local groupData = {}
 local RUNNING = false
 local openGUI = true
+local showGUI = false
 
 --create mailbox for actors to send messages to
 function RegisterActor()
@@ -74,6 +75,7 @@ local function getMyAA()
 end
 
 local function AA_Party_GUI(openGUI)
+    if not showGUI then return end
     imgui.SetNextWindowSize(180, 480, ImGuiCond.Appearing)
     local show = false
     openGUI, show = imgui.Begin("AA Party##AA_Party", openGUI, ImGuiWindowFlags.None)
@@ -81,9 +83,7 @@ local function AA_Party_GUI(openGUI)
         if #groupData > 0 then
             for i = 1, #groupData do
                 if groupData[i] ~= nil then
-                    --local tmpName = mq.TLO.Spawn(groupData[i].Name).Class.ShortName() --used for videos
                     ImGui.SeparatorText("%s", groupData[i].Name)
-                    -- local yPos = ImGui.GetCursorPosY()
                     ImGui.PushStyleColor(ImGuiCol.PlotHistogram,ImVec4(0.2, 0.9, 0.9, 0.5))
                     ImGui.ProgressBar(groupData[i].XP/100,ImVec2(165,8),"##AAXP"..groupData[i].Name)
                     ImGui.PopStyleColor()
@@ -95,6 +95,7 @@ local function AA_Party_GUI(openGUI)
                     local tmp = groupData[i].Setting
                     tmp = tmp:gsub("%%", "")
                     local AA_Set = tonumber(tmp) or 0
+                    -- this is for my OCD on spacing
                     if AA_Set < 10 then
                         ImGui.Text("\tAA Setting:   %d", AA_Set)
                     elseif AA_Set < 100 then
@@ -114,7 +115,47 @@ local function AA_Party_GUI(openGUI)
     imgui.End()
 end
 
+local args = {...}
+local function checkArgs(args)
+    if #args > 0 then
+        if args[1] == 'driver' then
+            showGUI = false
+            print('\ayAA Party:\ao Setting \atDriver\ax Mode. UI will be displayed.')
+        elseif args[1] == 'client' then
+            showGUI = true
+            print('\ayAA Party:\ao Setting \atClient\ax Mode. UI will not be displayed.')
+        end
+    else
+        showGUI = true
+        print('\ayAA Party: \aoNo arguments passed, defaulting to \atDriver\ax Mode. UI will be displayed.')
+        print('\ayAA Party: \aoTo change to \atClient\ax Mode, pass \atclient\ax as an argument when loading the plugin.')
+    end
+end
+
+local function processCommand(...)
+    local args = {...}
+    if #args > 0 then
+        if args[1] == 'gui' then
+            showGUI = not showGUI
+            if showGUI then
+                print('\ayAA Party:\ao Toggling GUI \atOpen\ax.')
+            else
+                print('\ayAA Party:\ao Toggling GUI \atClosed\ax.')
+            end
+        elseif args[1] == 'exit' then
+            print('\ayAA Party:\ao Exiting.')
+            RUNNING = false
+        end
+    else
+        print('\ayAA Party:\ao No command given.')
+        print('\ayAA Party:\ag /aaparty gui \ao- Toggles the GUI on and off.')
+        print('\ayAA Party:\ag /aaparty exit \ao- Exits the plugin.')
+    end
+end
+
 local function init()
+    checkArgs(args)
+    mq.bind('/aaparty', processCommand)
     mq.imgui.init('AA_Party', AA_Party_GUI)
     RegisterActor()
     getMyAA()
@@ -130,6 +171,7 @@ local function mainLoop()
         mq.delay(1000) -- equivalent to '1s'
         mq.doevents()
     end
+    mq.exit()
 end
 
 init()
