@@ -25,5 +25,5 @@ Getting Started:
 * ```/aaparty gui```  Toggles the GUI in either mode.
 * ```/aaparty exit``` Quits the Script.
 
-https://github.com/grimmier378/aaparty/assets/124466615/366810ca-2806-4aba-b79e-e5652ab619bf
+https://vimeo.com/948576443?share=copy
 

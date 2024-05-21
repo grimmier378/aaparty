@@ -1,8 +1,8 @@
 --[[ 
     Title: AA Party
     Author: Grimmier
-    Description: This plugin is designed to help manage AA experience for a group of characters using Actors over DanNet.
-    It will display the current Percent AA, as well as the Slider Value for AA XP Split.
+    Description: This plugin is designed to help manage AA experience for a group of characters using Actors.
+    It will display the current Exp Percent, Percent AA, as well as the Slider Value for AA XP Split.
     You can adjust the AA experience Slider setting for each character, from any characters GUI.
 
     Hover the AA XP bar to see the current AA XP percentage, as well as Unspent AA, Spent AA, and Total AA.
@@ -16,7 +16,6 @@ local ME = mq.TLO.Me.Name()
 local Actor -- preloaded variable outside of the function
 local groupData = {}
 local RUNNING = false
-local openGUI = true
 local showGUI = false
 local MeLevel = mq.TLO.Me.Level()
 local PctExp = mq.TLO.Me.PctExp()
