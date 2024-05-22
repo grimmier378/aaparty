@@ -187,6 +187,11 @@ local function AA_Party_GUI(openGUI)
                         imgui.TextColored(ImVec4(0.8, 0.0, 0.8, 1.0), tTipTxt)
                         imgui.EndTooltip()
                     end
+                    if imgui.IsItemHovered() then
+                        if imgui.IsMouseReleased(0) then
+                            expand[groupData[i].Name] = not expand[groupData[i].Name]
+                        end
+                    end
                     -- end tooltip
 
                     -- expanded section for adjusting AA settings
@@ -219,11 +224,7 @@ local function AA_Party_GUI(openGUI)
                     ImGui.PopStyleVar()
                     -- End of grouped items
                     -- Left Click to expand the group for AA settings
-                    if imgui.IsItemHovered() then
-                        if imgui.IsMouseReleased(0) then
-                            expand[groupData[i].Name] = not expand[groupData[i].Name]
-                        end
-                    end
+
                     currentX = currentX + itemWidth + padding
                 end
             end
