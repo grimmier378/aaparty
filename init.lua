@@ -116,7 +116,7 @@ local function getMyAA()
     end
 end
 
-local function AA_Party_GUI(openGUI)
+local function AA_Party_GUI()
     if not showGUI then return end
     imgui.SetNextWindowSize(185, 480, ImGuiCond.Appearing)
     if aSize then
@@ -125,8 +125,10 @@ local function AA_Party_GUI(openGUI)
         winFlags = bit32.bor(ImGuiWindowFlags.None)
     end
     local show = false
-    openGUI, show = imgui.Begin("AA Party##AA_Party", openGUI, winFlags)
-    if show then
+    openGUI, show = imgui.Begin("AA Party##AA_Party", true, winFlags)
+    if not show then
+        imgui.End()
+    else
         if ImGui.IsMouseReleased(1) then
             aSize = not aSize
         end
@@ -229,8 +231,11 @@ local function AA_Party_GUI(openGUI)
                 end
             end
         end
+        imgui.End()
     end
-    imgui.End()
+    if not openGUI then
+        showGUI = false
+    end   
 end
 
 local args = {...}
