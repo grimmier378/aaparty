@@ -16,12 +16,42 @@ local ME = mq.TLO.Me.Name()
 local Actor -- preloaded variable outside of the function
 local groupData = {}
 local RUNNING = false
-local showGUI = false
+local AAPartyShow = false
 local MeLevel = mq.TLO.Me.Level()
 local PctExp = mq.TLO.Me.PctExp()
 local expand = {}
 local winFlags = bit32.bor(ImGuiWindowFlags.None)
 local aSize = true
+local checkIn = os.time()
+
+local function CheckIn()
+    local now = os.time()
+    if now - checkIn >= 60 then
+        checkIn = now
+        return true
+    end
+    return false
+end
+
+local function CheckStale()
+    local now = os.time()
+    local found = false
+    for i = 1, #groupData do
+        if groupData[1].Check == nil then
+            table.remove(groupData, i)
+            found = true
+            break
+        else
+            if now - groupData[i].Check > 120 then
+                table.remove(groupData, i)
+                found = true
+                break
+            end
+        end
+    end
+    if found then CheckStale() end
+end
+
 --create mailbox for actors to send messages to
 function RegisterActor()
     Actor = actors.register('aa_party', function(message)
@@ -34,6 +64,7 @@ function RegisterActor()
         local ptsTotal = MemberEntry.PtsTotal or 0
         local ptsSpent = MemberEntry.PtsSpent or 0
         local lvlWho = MemberEntry.Level or 0
+        local check = MemberEntry.Check or os.time()
         local found = false
         --New member connected if Hello is true. Lets send them our data so they have it.
         if MemberEntry.Hello then
@@ -46,8 +77,10 @@ function RegisterActor()
             Name = ME,
             Pts = PtsAA,
             PtsTotal = PtsTotal,
-            PtsSpent = PtsSpent})
+            PtsSpent = PtsSpent,
+            Check = os.time()})
             MemberEntry.Hello = false
+            checkIn = os.time()
         end
         -- Check for Execution commands in message and if DoWho is You then execute them.
         if MemberEntry.DoWho ~= nil then
@@ -57,6 +90,8 @@ function RegisterActor()
                     mq.TLO.Window("AAWindow/AAW_LessExpButton").LeftMouseUp()
                 elseif doWhat == 'More' then
                     mq.TLO.Window("AAWindow/AAW_MoreExpButton").LeftMouseUp()
+                elseif doWhat == 'Goodbye' then
+                    check = 0
                 end
             end
         end
@@ -70,14 +105,27 @@ function RegisterActor()
             groupData[i].PtsTotal = ptsTotal
             groupData[i].PtsSpent = ptsSpent
             groupData[i].Level = lvlWho
-
+            groupData[i].Check = check
             found = true
             break
             end
         end
         if not found then
-            table.insert(groupData, {Name = who,Level = lvlWho, PctExpAA = aaXP, PctExp = pctXP, DoWho = nil, DoWhat = nil, Setting = aaSetting, Pts = pts, PtsTotal = ptsTotal, PtsSpent = ptsSpent})
+            table.insert(groupData, 
+                {Name = who,
+                Level = lvlWho,
+                PctExpAA = aaXP,
+                PctExp = pctXP,
+                DoWho = nil,
+                DoWhat = nil,
+                Setting = aaSetting,
+                Pts = pts,
+                PtsTotal = ptsTotal,
+                PtsSpent = ptsSpent,
+                Hello = false,
+                Check = check})
         end
+        if check == 0 then CheckStale() end
     end)
 end
 
@@ -101,6 +149,7 @@ local function getMyAA()
             PctExp = tmpPctXP
             changed = true
     end
+    if CheckIn() then changed = true end
     if changed then
         Actor:send({mailbox='aa_party'}, {PctExp = PctExp,
         PctExpAA = PctAA,
@@ -112,21 +161,41 @@ local function getMyAA()
         Pts = PtsAA,
         PtsTotal = PtsTotal,
         PtsSpent = PtsSpent,
-        Hello = false})
+        Hello = false,
+        Check = checkIn})
     end
 end
 
-local function AA_Party_GUI(openGUI)
-    if not showGUI then return end
+local function SayGoodBye()
+    Actor:send({mailbox='aa_party'}, {PctExp = PctExp,
+    PctExpAA = PctAA,
+    Level = MeLevel,
+    Setting = SettingAA,
+    DoWho = 'Goodbye',
+    DoWhat = nil,
+    Name = ME,
+    Pts = PtsAA,
+    PtsTotal = PtsTotal,
+    PtsSpent = PtsSpent,
+    Hello = false,
+    Check = 0})
+end
+
+local function AA_Party_GUI()
+    if not AAPartyShow then return end
     imgui.SetNextWindowSize(185, 480, ImGuiCond.Appearing)
     if aSize then
         winFlags = bit32.bor(ImGuiWindowFlags.AlwaysAutoResize)
     else
         winFlags = bit32.bor(ImGuiWindowFlags.None)
     end
-    local show = false
-    openGUI, show = imgui.Begin("AA Party##AA_Party", openGUI, winFlags)
-    if show then
+    local openGUI, showGUI = imgui.Begin("AA Party##AA_Party", true, winFlags)
+    if not openGUI then
+        AAPartyShow = false
+    end
+    if not showGUI then
+        imgui.End()
+    else
         if ImGui.IsMouseReleased(1) then
             aSize = not aSize
         end
@@ -229,39 +298,43 @@ local function AA_Party_GUI(openGUI)
                 end
             end
         end
+        imgui.End()
     end
-    imgui.End()
 end
 
 local args = {...}
 local function checkArgs(args)
     if #args > 0 then
         if args[1] == 'driver' then
-            showGUI = true
+            AAPartyShow = true
             print('\ayAA Party:\ao Setting \atDriver\ax Mode. UI will be displayed.')
+            print('\ayAA Party:\ao Type \at/aaparty show\ax. to Toggle the UI')
         elseif args[1] == 'client' then
-            showGUI = false
+            AAPartyShow = false
             print('\ayAA Party:\ao Setting \atClient\ax Mode. UI will not be displayed.')
+            print('\ayAA Party:\ao Type \at/aaparty show\ax. to Toggle the UI')
         end
     else
-        showGUI = true
+        AAPartyShow = true
         print('\ayAA Party: \aoNo arguments passed, defaulting to \atDriver\ax Mode. UI will be displayed.')
-        print('\ayAA Party: \aoTo change to \atClient\ax Mode, pass \atclient\ax as an argument when loading the plugin.')
+        print('\ayAA Party: \aoUse \at/lua run aaparty client\ax To start with the UI Off.')
+        print('\ayAA Party:\ao Type \at/aaparty show\ax. to Toggle the UI')
     end
 end
 
 local function processCommand(...)
     local args = {...}
     if #args > 0 then
-        if args[1] == 'gui' then
-            showGUI = not showGUI
-            if showGUI then
+        if args[1] == 'gui' or args[1] == 'show' or args[1] == 'open' then
+            AAPartyShow = not AAPartyShow
+            if AAPartyShow then
                 print('\ayAA Party:\ao Toggling GUI \atOpen\ax.')
             else
                 print('\ayAA Party:\ao Toggling GUI \atClosed\ax.')
             end
-        elseif args[1] == 'exit' then
+        elseif args[1] == 'exit' or args[1] == 'quit'  then
             print('\ayAA Party:\ao Exiting.')
+            SayGoodBye()
             RUNNING = false
         end
     else
@@ -289,7 +362,9 @@ local function init()
         Pts = PtsAA,
         PtsTotal = PtsTotal,
         PtsSpent = PtsSpent,
-        Hello = true,})
+        Hello = true,
+        Check = os.time()})
+    checkIn = os.time()
     RUNNING = true
     mq.imgui.init('AA_Party', AA_Party_GUI)
 end
@@ -297,9 +372,12 @@ end
 local function mainLoop()
     while RUNNING do
         mq.delay(10000, function () return mq.TLO.Me.Zoning() == false end )
-        getMyAA()
+        getMyAA()       
         mq.delay(10)
+        CheckStale()
     end
+    SayGoodBye()
+    mq.delay(5) --time to say goodbye
     mq.exit()
 end
 
