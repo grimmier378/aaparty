@@ -14,19 +14,20 @@ local actors = require('actors')
 local PctAA, SettingAA, PtsAA, PtsSpent, PtsTotal = 0, '0', 0, 0, 0
 local ME = mq.TLO.Me.Name()
 local Actor -- preloaded variable outside of the function
-local groupData = {}
+local groupData, myData = {}, {}
 local RUNNING = false
 local AAPartyShow = false
 local MeLevel = mq.TLO.Me.Level()
 local PctExp = mq.TLO.Me.PctExp()
 local expand = {}
 local winFlags = bit32.bor(ImGuiWindowFlags.None)
-local aSize = true
+local aSize = false
+local firstRun = false
 local checkIn = os.time()
 
 local function CheckIn()
     local now = os.time()
-    if now - checkIn >= 60 then
+    if now - checkIn >= 60 or firstRun then
         checkIn = now
         return true
     end
@@ -52,6 +53,27 @@ local function CheckStale()
     if found then CheckStale() end
 end
 
+local function GenerateContent(who, what)
+    local doWhat = what or nil
+    local doWho = who or nil
+    local hello = false
+    if firstRun then hello = true end
+    return {
+        PctExp = PctExp,
+        PctExpAA = PctAA,
+        Level = MeLevel,
+        Setting = SettingAA,
+        DoWho = doWho,
+        DoWhat = doWhat,
+        Name = ME,
+        Pts = PtsAA,
+        PtsTotal = PtsTotal,
+        PtsSpent = PtsSpent,
+        Hello = hello,
+        Check = checkIn
+    }
+end
+
 --create mailbox for actors to send messages to
 function RegisterActor()
     Actor = actors.register('aa_party', function(message)
@@ -68,19 +90,9 @@ function RegisterActor()
         local found = false
         --New member connected if Hello is true. Lets send them our data so they have it.
         if MemberEntry.Hello then
-            Actor:send({mailbox='aa_party'}, {PctExp = PctExp,
-            PctExpAA = PctAA,
-            Level = MeLevel,
-            Setting = SettingAA,
-            DoWho = nil,
-            DoWhat = nil,
-            Name = ME,
-            Pts = PtsAA,
-            PtsTotal = PtsTotal,
-            PtsSpent = PtsSpent,
-            Check = os.time()})
-            MemberEntry.Hello = false
             checkIn = os.time()
+            Actor:send({mailbox='aa_party'}, GenerateContent())
+            MemberEntry.Hello = false
         end
         -- Check for Execution commands in message and if DoWho is You then execute them.
         if MemberEntry.DoWho ~= nil then
@@ -88,12 +100,15 @@ function RegisterActor()
                 local doWhat = MemberEntry.DoWhat
                 if doWhat == 'Less' then
                     mq.TLO.Window("AAWindow/AAW_LessExpButton").LeftMouseUp()
+                    return
                 elseif doWhat == 'More' then
                     mq.TLO.Window("AAWindow/AAW_MoreExpButton").LeftMouseUp()
-                elseif doWhat == 'Goodbye' then
-                    check = 0
+                    return
                 end
             end
+        end
+        if MemberEntry.DoWhat == 'Goodbye' then
+            check = 0
         end
         -- Process the rest of the message into the groupData table.
         for i = 1, #groupData do
@@ -151,39 +166,21 @@ local function getMyAA()
     end
     if CheckIn() then changed = true end
     if changed then
-        Actor:send({mailbox='aa_party'}, {PctExp = PctExp,
-        PctExpAA = PctAA,
-        Level = MeLevel,
-        Setting = SettingAA,
-        DoWho = nil,
-        DoWhat = nil,
-        Name = ME,
-        Pts = PtsAA,
-        PtsTotal = PtsTotal,
-        PtsSpent = PtsSpent,
-        Hello = false,
-        Check = checkIn})
+        Actor:send({mailbox='aa_party'}, GenerateContent())
+        firstRun = false
     end
 end
 
 local function SayGoodBye()
-    Actor:send({mailbox='aa_party'}, {PctExp = PctExp,
-    PctExpAA = PctAA,
-    Level = MeLevel,
-    Setting = SettingAA,
-    DoWho = 'Goodbye',
-    DoWhat = nil,
+    Actor:send({mailbox='aa_party'}, {
+    DoWhat = 'Goodbye',
     Name = ME,
-    Pts = PtsAA,
-    PtsTotal = PtsTotal,
-    PtsSpent = PtsSpent,
-    Hello = false,
     Check = 0})
 end
 
 local function AA_Party_GUI()
     if not AAPartyShow then return end
-    imgui.SetNextWindowSize(185, 480, ImGuiCond.Appearing)
+    imgui.SetNextWindowSize(185, 480, ImGuiCond.FirstUseEver)
     if aSize then
         winFlags = bit32.bor(ImGuiWindowFlags.AlwaysAutoResize)
     else
@@ -200,16 +197,16 @@ local function AA_Party_GUI()
             aSize = not aSize
         end
         if #groupData > 0 then
-            local windowWidth = imgui.GetWindowWidth()
+            local windowWidth = imgui.GetWindowWidth() - 4
             local currentX, currentY = imgui.GetCursorPosX(), imgui.GetCursorPosY()
-            local itemWidth = 170 -- approximate width
-            local padding = 4 -- padding between items
+            local itemWidth = 150 -- approximate width
+            local padding = 2 -- padding between items
 
             for i = 1, #groupData do
                 if i == 1 then currentY = imgui.GetCursorPosY() end
                 if groupData[i] ~= nil then
                     if expand[groupData[i].Name] == nil then expand[groupData[i].Name] = false end
-                    if currentX + itemWidth > windowWidth +2 then
+                    if currentX + itemWidth > windowWidth then
                         imgui.NewLine()
                         currentY = imgui.GetCursorPosY()
                         currentX = imgui.GetCursorPosX()
@@ -224,17 +221,20 @@ local function AA_Party_GUI()
                     local childY = 68
                     if not expand[groupData[i].Name] then childY = 42 end
                     ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, 2,2)
-                    imgui.BeginChild(groupData[i].Name,165, childY, bit32.bor(ImGuiChildFlags.Border,ImGuiChildFlags.AutoResizeY))
+                    imgui.BeginChild(groupData[i].Name,145, childY, bit32.bor(ImGuiChildFlags.Border,ImGuiChildFlags.AutoResizeY))
                     -- Start of grouped Whole Elements
                     ImGui.BeginGroup()
                     -- Start of subgrouped Elements for tooltip
                     imgui.PushID(groupData[i].Name)
+                    imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
                     imgui.Text("%s (%s)", groupData[i].Name, groupData[i].Level)
                     imgui.PushStyleColor(ImGuiCol.PlotHistogram, ImVec4(1, 0.9, 0.4, 0.5))
-                    imgui.ProgressBar(groupData[i].PctExp / 100, ImVec2(160, 5), "##PctXP" .. groupData[i].Name)
+                    imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
+                    imgui.ProgressBar(groupData[i].PctExp / 100, ImVec2(137, 5), "##PctXP" .. groupData[i].Name)
                     imgui.PopStyleColor()
                     imgui.PushStyleColor(ImGuiCol.PlotHistogram, ImVec4(0.2, 0.9, 0.9, 0.5))
-                    imgui.ProgressBar(groupData[i].PctExpAA / 100, ImVec2(160, 5), "##AAXP" .. groupData[i].Name)
+                    imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
+                    imgui.ProgressBar(groupData[i].PctExpAA / 100, ImVec2(137, 5), "##AAXP" .. groupData[i].Name)
                     imgui.PopStyleColor()
                     imgui.PopID()
                     ImGui.EndGroup()
@@ -266,25 +266,31 @@ local function AA_Party_GUI()
                     -- expanded section for adjusting AA settings
                     
                     if expand[groupData[i].Name] then
+                        imgui.SetCursorPosX(ImGui.GetCursorPosX() + 12)
                         if imgui.Button("<##Decrease" .. groupData[i].Name) then
-                            Actor:send({mailbox = 'aa_party'}, {PctExp = PctExp, PctExpAA = PctAA, Level = MeLevel, DoWho = groupData[i].Name, DoWhat = 'Less', Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
+                            Actor:send({mailbox = 'aa_party'}, GenerateContent(groupData[i].Name, 'Less'))
                         end
                         imgui.SameLine()
                         local tmp = groupData[i].Setting
                         tmp = tmp:gsub("%%", "")
                         local AA_Set = tonumber(tmp) or 0
                         -- this is for my OCD on spacing
-                        if AA_Set < 10 then
-                            imgui.Text("\tAA Setting:   %d", AA_Set)
+                        if AA_Set == 0 then
+                            imgui.Text("AA Set:    %d", AA_Set)
+                            imgui.SameLine()
+                            imgui.SetCursorPosX(ImGui.GetCursorPosX() + 7)
                         elseif AA_Set < 100 then
-                            imgui.Text("\tAA Setting:  %d", AA_Set)
+                            imgui.Text("AA Set:   %d", AA_Set)
+                            imgui.SameLine()
+                            imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
                         else
-                            imgui.Text("\tAA Setting: %d", AA_Set)
+                            imgui.Text("AA Set: %d", AA_Set)
+                            imgui.SameLine()
+                            imgui.SetCursorPosX(ImGui.GetCursorPosX())
                         end
-                        imgui.SameLine()
-                        imgui.SetCursorPosX(ImGui.GetCursorPosX() + 10)
+
                         if imgui.Button(">##Increase" .. groupData[i].Name) then
-                            Actor:send({mailbox = 'aa_party'}, {PctExp = PctExp, PctExpAA = PctAA, Level = MeLevel, DoWho = groupData[i].Name, DoWhat = 'More', Setting = SettingAA, Name = ME, Pts = PtsAA, PtsTotal = PtsTotal, PtsSpent = PtsSpent})
+                            Actor:send({mailbox = 'aa_party'}, GenerateContent(groupData[i].Name, 'More'))
                         end
                     end
                     
@@ -293,7 +299,6 @@ local function AA_Party_GUI()
                     ImGui.PopStyleVar()
                     -- End of grouped items
                     -- Left Click to expand the group for AA settings
-
                     currentX = currentX + itemWidth + padding
                 end
             end
@@ -345,26 +350,13 @@ local function processCommand(...)
 end
 
 local function init()
+    firstRun = true
     mq.delay(10000, function () return mq.TLO.Me.Zoning() == false end )
     checkArgs(args)
     mq.bind('/aaparty', processCommand)
     RegisterActor()
+    mq.delay(250)
     getMyAA()
-    mq.delay(5)
-    --send message to the mailbox from this character
-    Actor:send({mailbox='aa_party'}, {PctExp = PctExp,
-        PctExpAA = PctAA,
-        Level = MeLevel,
-        Setting = SettingAA,
-        DoWho = nil,
-        DoWhat = nil,
-        Name = ME,
-        Pts = PtsAA,
-        PtsTotal = PtsTotal,
-        PtsSpent = PtsSpent,
-        Hello = true,
-        Check = os.time()})
-    checkIn = os.time()
     RUNNING = true
     mq.imgui.init('AA_Party', AA_Party_GUI)
 end
@@ -373,11 +365,9 @@ local function mainLoop()
     while RUNNING do
         mq.delay(10000, function () return mq.TLO.Me.Zoning() == false end )
         getMyAA()       
-        mq.delay(10)
+        mq.delay(50)
         CheckStale()
     end
-    SayGoodBye()
-    mq.delay(5) --time to say goodbye
     mq.exit()
 end
 
