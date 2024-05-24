@@ -12,7 +12,7 @@ local mq = require('mq')
 local imgui = require 'ImGui'
 local actors = require('actors')
 local PctAA, SettingAA, PtsAA, PtsSpent, PtsTotal = 0, '0', 0, 0, 0
-local ME = mq.TLO.Me.Name()
+local ME = ''
 local Actor -- preloaded variable outside of the function
 local groupData, myData = {}, {}
 local RUNNING = false
@@ -353,6 +353,7 @@ local function processCommand(...)
 end
 
 local function init()
+    ME = mq.TLO.Me.Name()
     firstRun = true
     mq.delay(10000, function () return mq.TLO.Me.Zoning() == false end )
     checkArgs(args)
@@ -366,7 +367,7 @@ end
 
 local function mainLoop()
     while RUNNING do
-        if  mq.TLO.MacroQuest.GameState() ~= "INGAME" then mq.exit() end
+        if  mq.TLO.EverQuest.GameState() ~= "INGAME" then SayGoodBye() mq.exit() end
         mq.delay(10000, function () return mq.TLO.Me.Zoning() == false end )
         getMyAA()       
         mq.delay(50)
@@ -375,5 +376,6 @@ local function mainLoop()
     mq.exit()
 end
 
+if mq.TLO.EverQuest.GameState() ~= "INGAME" then mq.exit() end
 init()
 mainLoop()
