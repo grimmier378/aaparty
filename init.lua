@@ -192,119 +192,122 @@ local function AA_Party_GUI()
     end
     if not showGUI then
         imgui.End()
-    else
-        if ImGui.IsMouseReleased(1) then
-            aSize = not aSize
-        end
-        if #groupData > 0 then
-            local windowWidth = imgui.GetWindowWidth() - 4
-            local currentX, currentY = imgui.GetCursorPosX(), imgui.GetCursorPosY()
-            local itemWidth = 150 -- approximate width
-            local padding = 2 -- padding between items
+        return
+    end
 
-            for i = 1, #groupData do
-                if i == 1 then currentY = imgui.GetCursorPosY() end
-                if groupData[i] ~= nil then
-                    if expand[groupData[i].Name] == nil then expand[groupData[i].Name] = false end
-                    if currentX + itemWidth > windowWidth then
-                        imgui.NewLine()
-                        currentY = imgui.GetCursorPosY()
-                        currentX = imgui.GetCursorPosX()
-                        -- currentY = imgui.GetCursorPosY()
-                        ImGui.SetCursorPosY(currentY - 20)
-                    else
-                        if i > 1 then
-                            imgui.SameLine()
-                            -- ImGui.SetCursorPosY(currentY)
-                        end
-                    end
-                    local childY = 68
-                    if not expand[groupData[i].Name] then childY = 42 end
-                    ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, 2,2)
-                    imgui.BeginChild(groupData[i].Name,145, childY, bit32.bor(ImGuiChildFlags.Border,ImGuiChildFlags.AutoResizeY))
-                    -- Start of grouped Whole Elements
-                    ImGui.BeginGroup()
-                    -- Start of subgrouped Elements for tooltip
-                    imgui.PushID(groupData[i].Name)
-                    imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
-                    imgui.Text("%s (%s)", groupData[i].Name, groupData[i].Level)
-                    imgui.PushStyleColor(ImGuiCol.PlotHistogram, ImVec4(1, 0.9, 0.4, 0.5))
-                    imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
-                    imgui.ProgressBar(groupData[i].PctExp / 100, ImVec2(137, 5), "##PctXP" .. groupData[i].Name)
-                    imgui.PopStyleColor()
-                    imgui.PushStyleColor(ImGuiCol.PlotHistogram, ImVec4(0.2, 0.9, 0.9, 0.5))
-                    imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
-                    imgui.ProgressBar(groupData[i].PctExpAA / 100, ImVec2(137, 5), "##AAXP" .. groupData[i].Name)
-                    imgui.PopStyleColor()
-                    imgui.PopID()
-                    ImGui.EndGroup()
-                    -- end of subgrouped Elements for tooltip begin tooltip
-                    if ImGui.IsItemHovered() then
-                        imgui.BeginTooltip()
-                        local tTipTxt = "\t\t" .. groupData[i].Name
-                        imgui.TextColored(ImVec4(1, 1, 1, 1), tTipTxt)
-                        imgui.Separator()
-                        tTipTxt = string.format("Exp:\t\t\t%.2f %%", groupData[i].PctExp)
-                        imgui.TextColored(ImVec4(1, 0.9, 0.4, 1), tTipTxt)
-                        tTipTxt = string.format("AA Exp: \t%.2f %%", groupData[i].PctExpAA)
-                        imgui.TextColored(ImVec4(0.2, 0.9, 0.9, 1), tTipTxt)
-                        tTipTxt = string.format("Avail:  \t\t%d", groupData[i].Pts)
-                        imgui.TextColored(ImVec4(0, 1, 0, 1), tTipTxt)
-                        tTipTxt = string.format("Spent:\t\t%d", groupData[i].PtsSpent)
-                        imgui.TextColored(ImVec4(0.9, 0.4, 0.4, 1), tTipTxt)
-                        tTipTxt = string.format("Total:\t\t%d", groupData[i].PtsTotal)
-                        imgui.TextColored(ImVec4(0.8, 0.0, 0.8, 1.0), tTipTxt)
-                        imgui.EndTooltip()
-                    end
-                    if imgui.IsItemHovered() then
-                        if imgui.IsMouseReleased(0) then
-                            expand[groupData[i].Name] = not expand[groupData[i].Name]
-                        end
-                    end
-                    -- end tooltip
+    if #groupData > 0 then
+        local windowWidth = imgui.GetWindowWidth() - 4
+        local currentX, currentY = imgui.GetCursorPosX(), imgui.GetCursorPosY()
+        local itemWidth = 150 -- approximate width
+        local padding = 2 -- padding between items
 
-                    -- expanded section for adjusting AA settings
-                    
-                    if expand[groupData[i].Name] then
-                        imgui.SetCursorPosX(ImGui.GetCursorPosX() + 12)
-                        if imgui.Button("<##Decrease" .. groupData[i].Name) then
-                            Actor:send({mailbox = 'aa_party'}, GenerateContent(groupData[i].Name, 'Less'))
-                        end
+        for i = 1, #groupData do
+            if i == 1 then currentY = imgui.GetCursorPosY() end
+            if groupData[i] ~= nil then
+                if expand[groupData[i].Name] == nil then expand[groupData[i].Name] = false end
+                if currentX + itemWidth > windowWidth then
+                    imgui.NewLine()
+                    currentY = imgui.GetCursorPosY()
+                    currentX = imgui.GetCursorPosX()
+                    -- currentY = imgui.GetCursorPosY()
+                    ImGui.SetCursorPosY(currentY - 20)
+                else
+                    if i > 1 then
                         imgui.SameLine()
-                        local tmp = groupData[i].Setting
-                        tmp = tmp:gsub("%%", "")
-                        local AA_Set = tonumber(tmp) or 0
-                        -- this is for my OCD on spacing
-                        if AA_Set == 0 then
-                            imgui.Text("AA Set:    %d", AA_Set)
-                            imgui.SameLine()
-                            imgui.SetCursorPosX(ImGui.GetCursorPosX() + 7)
-                        elseif AA_Set < 100 then
-                            imgui.Text("AA Set:   %d", AA_Set)
-                            imgui.SameLine()
-                            imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
-                        else
-                            imgui.Text("AA Set: %d", AA_Set)
-                            imgui.SameLine()
-                            imgui.SetCursorPosX(ImGui.GetCursorPosX())
-                        end
-
-                        if imgui.Button(">##Increase" .. groupData[i].Name) then
-                            Actor:send({mailbox = 'aa_party'}, GenerateContent(groupData[i].Name, 'More'))
-                        end
+                        -- ImGui.SetCursorPosY(currentY)
                     end
-                    
-                    ImGui.Separator()
-                    imgui.EndChild()
-                    ImGui.PopStyleVar()
-                    -- End of grouped items
-                    -- Left Click to expand the group for AA settings
-                    currentX = currentX + itemWidth + padding
                 end
+                local childY = 68
+                if not expand[groupData[i].Name] then childY = 42 end
+                ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, 2,2)
+                imgui.BeginChild(groupData[i].Name,145, childY, bit32.bor(ImGuiChildFlags.Border,ImGuiChildFlags.AutoResizeY))
+                -- Start of grouped Whole Elements
+                ImGui.BeginGroup()
+                -- Start of subgrouped Elements for tooltip
+                imgui.PushID(groupData[i].Name)
+                imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
+                imgui.Text("%s (%s)", groupData[i].Name, groupData[i].Level)
+                imgui.PushStyleColor(ImGuiCol.PlotHistogram, ImVec4(1, 0.9, 0.4, 0.5))
+                imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
+                imgui.ProgressBar(groupData[i].PctExp / 100, ImVec2(137, 5), "##PctXP" .. groupData[i].Name)
+                imgui.PopStyleColor()
+                imgui.PushStyleColor(ImGuiCol.PlotHistogram, ImVec4(0.2, 0.9, 0.9, 0.5))
+                imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
+                imgui.ProgressBar(groupData[i].PctExpAA / 100, ImVec2(137, 5), "##AAXP" .. groupData[i].Name)
+                imgui.PopStyleColor()
+                imgui.PopID()
+                ImGui.EndGroup()
+                -- end of subgrouped Elements for tooltip begin tooltip
+                if ImGui.IsItemHovered() then
+                    imgui.BeginTooltip()
+                    local tTipTxt = "\t\t" .. groupData[i].Name
+                    imgui.TextColored(ImVec4(1, 1, 1, 1), tTipTxt)
+                    imgui.Separator()
+                    tTipTxt = string.format("Exp:\t\t\t%.2f %%", groupData[i].PctExp)
+                    imgui.TextColored(ImVec4(1, 0.9, 0.4, 1), tTipTxt)
+                    tTipTxt = string.format("AA Exp: \t%.2f %%", groupData[i].PctExpAA)
+                    imgui.TextColored(ImVec4(0.2, 0.9, 0.9, 1), tTipTxt)
+                    tTipTxt = string.format("Avail:  \t\t%d", groupData[i].Pts)
+                    imgui.TextColored(ImVec4(0, 1, 0, 1), tTipTxt)
+                    tTipTxt = string.format("Spent:\t\t%d", groupData[i].PtsSpent)
+                    imgui.TextColored(ImVec4(0.9, 0.4, 0.4, 1), tTipTxt)
+                    tTipTxt = string.format("Total:\t\t%d", groupData[i].PtsTotal)
+                    imgui.TextColored(ImVec4(0.8, 0.0, 0.8, 1.0), tTipTxt)
+                    imgui.EndTooltip()
+                end
+                if imgui.IsItemHovered() then
+                    if imgui.IsMouseReleased(0) then
+                        expand[groupData[i].Name] = not expand[groupData[i].Name]
+                    end
+                end
+                -- end tooltip
+
+                -- expanded section for adjusting AA settings
+                
+                if expand[groupData[i].Name] then
+                    imgui.SetCursorPosX(ImGui.GetCursorPosX() + 12)
+                    if imgui.Button("<##Decrease" .. groupData[i].Name) then
+                        Actor:send({mailbox = 'aa_party'}, GenerateContent(groupData[i].Name, 'Less'))
+                    end
+                    imgui.SameLine()
+                    local tmp = groupData[i].Setting
+                    tmp = tmp:gsub("%%", "")
+                    local AA_Set = tonumber(tmp) or 0
+                    -- this is for my OCD on spacing
+                    if AA_Set == 0 then
+                        imgui.Text("AA Set:    %d", AA_Set)
+                        imgui.SameLine()
+                        imgui.SetCursorPosX(ImGui.GetCursorPosX() + 7)
+                    elseif AA_Set < 100 then
+                        imgui.Text("AA Set:   %d", AA_Set)
+                        imgui.SameLine()
+                        imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
+                    else
+                        imgui.Text("AA Set: %d", AA_Set)
+                        imgui.SameLine()
+                        imgui.SetCursorPosX(ImGui.GetCursorPosX())
+                    end
+
+                    if imgui.Button(">##Increase" .. groupData[i].Name) then
+                        Actor:send({mailbox = 'aa_party'}, GenerateContent(groupData[i].Name, 'More'))
+                    end
+                end
+                
+                ImGui.Separator()
+                imgui.EndChild()
+                ImGui.PopStyleVar()
+                -- End of grouped items
+                -- Left Click to expand the group for AA settings
+                currentX = currentX + itemWidth + padding
             end
         end
-        imgui.End()
     end
+    if ImGui.IsWindowHovered() and ImGui.IsMouseReleased(1) then
+        aSize = not aSize
+    end
+    imgui.End()
+
+
 end
 
 local args = {...}
@@ -363,6 +366,7 @@ end
 
 local function mainLoop()
     while RUNNING do
+        if  mq.TLO.MacroQuest.GameState() ~= "INGAME" then mq.exit() end
         mq.delay(10000, function () return mq.TLO.Me.Zoning() == false end )
         getMyAA()       
         mq.delay(50)
