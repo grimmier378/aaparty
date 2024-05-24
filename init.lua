@@ -186,7 +186,7 @@ local function AA_Party_GUI()
     else
         winFlags = bit32.bor(ImGuiWindowFlags.None)
     end
-    local openGUI, showGUI = imgui.Begin("AA Party##AA_Party", true, winFlags)
+    local openGUI, showGUI = imgui.Begin("AA Party##AA_Party_"..ME, true, winFlags)
     if not openGUI then
         AAPartyShow = false
     end
