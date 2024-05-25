@@ -14,7 +14,7 @@ Hover the AA XP bar to see the current AA XP percentage, as well as Unspent AA, 
 
 Getting Started: 
 
-## starting commands:
+## Starting Commands:
 
 * ```/lua run aaparty client``` Opens with GUI off for client mode.
 * ```/lua run aaparty driver``` Opens with the GUI Enabled for the Driver.
@@ -24,6 +24,12 @@ Getting Started:
 
 * ```/aaparty gui```  Toggles the GUI in either mode.
 * ```/aaparty exit``` Quits the Script.
+
+## Mouse Toggles
+
+* ```Left Click``` on Characters Tile will Toggle expanding the tile to show AA slider Adjustment.
+* ```Right Click``` on Name will Toggle compact tile, which will hide the progress bars. 
+* ```Right Click``` on empty space on the window or the title bar will Toggle Auto Resize on window.
 
 https://vimeo.com/948682703?share=copy
 
