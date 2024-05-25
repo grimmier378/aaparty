@@ -20,6 +20,7 @@ local AAPartyShow = false
 local MeLevel = mq.TLO.Me.Level()
 local PctExp = mq.TLO.Me.PctExp()
 local expand = {}
+local compact = {}
 local winFlags = bit32.bor(ImGuiWindowFlags.None)
 local aSize = false
 local firstRun = false
@@ -205,6 +206,8 @@ local function AA_Party_GUI()
             if i == 1 then currentY = imgui.GetCursorPosY() end
             if groupData[i] ~= nil then
                 if expand[groupData[i].Name] == nil then expand[groupData[i].Name] = false end
+                if compact[groupData[i].Name] == nil then compact[groupData[i].Name] = false end
+
                 if currentX + itemWidth > windowWidth then
                     imgui.NewLine()
                     currentY = imgui.GetCursorPosY()
@@ -219,6 +222,8 @@ local function AA_Party_GUI()
                 end
                 local childY = 68
                 if not expand[groupData[i].Name] then childY = 42 end
+                if compact[groupData[i].Name] then childY = 25 end
+                if compact[groupData[i].Name] and expand[groupData[i].Name] then childY = 51 end
                 ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, 2,2)
                 imgui.BeginChild(groupData[i].Name,145, childY, bit32.bor(ImGuiChildFlags.Border,ImGuiChildFlags.AutoResizeY))
                 -- Start of grouped Whole Elements
@@ -227,6 +232,7 @@ local function AA_Party_GUI()
                 imgui.PushID(groupData[i].Name)
                 imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
                 imgui.Text("%s (%s)", groupData[i].Name, groupData[i].Level)
+            if not compact[groupData[i].Name] then
                 imgui.PushStyleColor(ImGuiCol.PlotHistogram, ImVec4(1, 0.9, 0.4, 0.5))
                 imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
                 imgui.ProgressBar(groupData[i].PctExp / 100, ImVec2(137, 5), "##PctXP" .. groupData[i].Name)
@@ -235,6 +241,7 @@ local function AA_Party_GUI()
                 imgui.SetCursorPosX(ImGui.GetCursorPosX() + 2)
                 imgui.ProgressBar(groupData[i].PctExpAA / 100, ImVec2(137, 5), "##AAXP" .. groupData[i].Name)
                 imgui.PopStyleColor()
+            end
                 imgui.PopID()
                 ImGui.EndGroup()
                 -- end of subgrouped Elements for tooltip begin tooltip
@@ -258,6 +265,9 @@ local function AA_Party_GUI()
                 if imgui.IsItemHovered() then
                     if imgui.IsMouseReleased(0) then
                         expand[groupData[i].Name] = not expand[groupData[i].Name]
+                    end
+                    if imgui.IsMouseReleased(1) then
+                        compact[groupData[i].Name] = not compact[groupData[i].Name]
                     end
                 end
                 -- end tooltip
@@ -353,7 +363,7 @@ local function processCommand(...)
 end
 
 local function init()
-    ME = mq.TLO.Me.Name()
+    ME = mq.TLO.Me.DisplayName()
     firstRun = true
     mq.delay(10000, function () return mq.TLO.Me.Zoning() == false end )
     checkArgs(args)
@@ -367,7 +377,7 @@ end
 
 local function mainLoop()
     while RUNNING do
-        if  mq.TLO.EverQuest.GameState() ~= "INGAME" then SayGoodBye() mq.exit() end
+        if  mq.TLO.EverQuest.GameState() ~= "INGAME" then SayGoodBye() print("\aw[\atAA Party\ax] \arNot in game, \aoSaying \ayGoodbye\ax and Shutting Down...") mq.exit() end
         mq.delay(10000, function () return mq.TLO.Me.Zoning() == false end )
         getMyAA()       
         mq.delay(50)
@@ -376,6 +386,6 @@ local function mainLoop()
     mq.exit()
 end
 
-if mq.TLO.EverQuest.GameState() ~= "INGAME" then mq.exit() end
+if mq.TLO.EverQuest.GameState() ~= "INGAME" then print("\aw[\atAA Party\ax] \arNot in game, \ayTry again later...") mq.exit() end
 init()
 mainLoop()
