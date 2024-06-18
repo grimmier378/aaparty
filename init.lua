@@ -14,7 +14,7 @@ local actors = require('actors')
 local PctAA, SettingAA, PtsAA, PtsSpent, PtsTotal = 0, '0', 0, 0, 0
 local LoadTheme = require('lib.theme_loader')
 local themeID = 1
-local theme, defaults, settings, timerColor = {}, {}, {}, {}
+local theme, defaults, settings = {}, {}, {}
 local themeFile = string.format('%s/MyThemeZ.lua', mq.configDir)
 local configFile = mq.configDir .. '/myui/AA_Party_Configs.lua'
 local themezDir = mq.luaDir .. '/themez/init.lua'
@@ -22,22 +22,24 @@ local themeName = 'Default'
 local script = 'AA Party'
 local ME = ''
 local Actor -- preloaded variable outside of the function
-local groupData, myData, mailBox = {}, {}, {}
+local groupData, mailBox = {}, {}
 local AAPartyShow, MailBoxShow,AAPartyConfigShow = false, false,false
 local MeLevel = mq.TLO.Me.Level()
 local PctExp = mq.TLO.Me.PctExp()
-local expand = {}
-local compact = {}
+local expand, compact = {}, {}
 local winFlags = bit32.bor(ImGuiWindowFlags.None)
 local RUNNING, aSize, hasThemeZ, firstRun = false, false, false, false
 local checkIn = os.time()
 local scale = 1
+local alphaSort, showTooltip = false, true
 
 defaults = {
     Scale = 1,
     LoadTheme = 'Default',
     AutoSize = false,
+    ShowTooltip = true,
     MaxRow = 1,
+    AlphaSort = false,
 }
 
 
@@ -87,24 +89,33 @@ local function loadSettings()
         settings[script].locked = false
         newSetting = true
     end
-		
+	
+    if settings[script].AlphaSort == nil then
+        settings[script].AlphaSort = false
+        newSetting = true
+    end
+
     if settings[script].Scale == nil then
         settings[script].Scale = 1
         newSetting = true
     end
 
-    if settings[script].maxRow == nil then
-        settings[script].maxRow = 1
+    if settings[script].ShowTooltip == nil then
+        settings[script].ShowTooltip = true
+        newSetting = true
+    end
+
+    if settings[script].MaxRow == nil then
+        settings[script].MaxRow = 1
         newSetting = true
     end
 	
-    if not settings[script].LoadTheme then
+    if settings[script].LoadTheme == nil then
         settings[script].LoadTheme = 'Default'
         newSetting = true
     end
-	
-    loadTheme()
 
+    loadTheme()
 
     if settings[script].AutoSize == nil then
         settings[script].AutoSize = aSize
@@ -112,10 +123,11 @@ local function loadSettings()
     end
 		
     -- Set the settings to the variables
+    alphaSort = settings[script].AlphaSort
     aSize = settings[script].AutoSize
     scale = settings[script].Scale
+    showTooltip = settings[script].ShowTooltip
     themeName = settings[script].LoadTheme
-    timerColor = settings[script].TimerColor
     if newSetting then mq.pickle(configFile, settings) end
 	
 end
@@ -167,6 +179,13 @@ local function GenerateContent(who,sub, what)
         PtsSpent = PtsSpent,
         Check = checkIn
     }
+end
+
+local function sortedBoxes(boxes)
+    table.sort(boxes, function(a, b)
+        return a.Name < b.Name
+    end)
+    return boxes
 end
 
 --create mailbox for actors to send messages to
@@ -244,6 +263,7 @@ function RegisterActor()
                     Check = check})
             end
         -- end
+        if alphaSort then groupData = sortedBoxes(groupData) end
         if check == 0 then CheckStale() end
 
     end)
@@ -307,7 +327,6 @@ local function AA_Party_GUI()
                 local currentX, currentY = imgui.GetCursorPosX(), imgui.GetCursorPosY()
                 local itemWidth = 150 -- approximate width
                 local padding = 2 -- padding between items
-
                 for i = 1, #groupData do
                     if i == 1 then currentY = imgui.GetCursorPosY() end
                     if groupData[i] ~= nil then
@@ -351,7 +370,7 @@ local function AA_Party_GUI()
                         imgui.PopID()
                         ImGui.EndGroup()
                         -- end of subgrouped Elements for tooltip begin tooltip
-                        if ImGui.IsItemHovered() then
+                        if ImGui.IsItemHovered() and showTooltip then
                             imgui.BeginTooltip()
                             local tTipTxt = "\t\t" .. groupData[i].Name
                             imgui.TextColored(ImVec4(1, 1, 1, 1), tTipTxt)
@@ -425,6 +444,9 @@ local function AA_Party_GUI()
                 if ImGui.MenuItem("Toggle Auto Size##Size_"..ME) then
                     aSize = not aSize
                 end
+                if ImGui.MenuItem("Toggle Tooltip##Tooltip_"..ME) then
+                    showTooltip = not showTooltip
+                end
                 ImGui.EndPopup()
             end
         end
@@ -435,7 +457,7 @@ local function AA_Party_GUI()
 
     if MailBoxShow then
         local ColorCount, StyleCount =LoadTheme.StartTheme(theme.Theme[themeID])
-        local openMail, showMail = imgui.Begin("MailBox##MailBox_"..ME, true, ImGuiWindowFlags.None)
+        local openMail, showMail = imgui.Begin("AA Party MailBox##MailBox_"..ME, true, ImGuiWindowFlags.None)
         if not openMail then
             MailBoxShow = false
             mailBox = {}
@@ -480,9 +502,7 @@ local function AA_Party_GUI()
             AAPartyConfigShow = false
         end
         if showConfig then
-
             ImGui.SeparatorText("Theme##MySpells")
-                    
             ImGui.Text("Cur Theme: %s", themeName)
             -- Combo Box Load Theme
             if ImGui.BeginCombo("Load Theme##MySpells", themeName) then
@@ -516,11 +536,16 @@ local function AA_Party_GUI()
             end
 
             MailBoxShow = ImGui.Checkbox("Show MailBox##MySpells", MailBoxShow)
+            ImGui.SameLine()
+            alphaSort = ImGui.Checkbox("Alpha Sort##MySpells", alphaSort)
+            showTooltip = ImGui.Checkbox("Show Tooltip##MySpells", showTooltip)
 
             if ImGui.Button("Save & Close") then
                 settings = dofile(configFile)
                 settings[script].Scale = scale
+                settings[script].AlphaSort = alphaSort
                 settings[script].LoadTheme = themeName
+                settings[script].ShowTooltip = showTooltip
                 mq.pickle(configFile, settings)
                 AAPartyConfigShow = false
             end
