@@ -31,6 +31,7 @@ local winFlags = bit32.bor(ImGuiWindowFlags.None)
 local RUNNING, aSize, hasThemeZ, firstRun = false, false, false, false
 local checkIn = os.time()
 local scale = 1
+local currZone, lastZone
 local alphaSort, showTooltip = false, true
 
 defaults = {
@@ -41,7 +42,6 @@ defaults = {
     MaxRow = 1,
     AlphaSort = false,
 }
-
 
 ---comment Check to see if the file we want to work on exists.
 ---@param name string -- Full Path to file
@@ -134,7 +134,7 @@ end
 
 local function CheckIn()
     local now = os.time()
-    if now - checkIn >= 60 or firstRun then
+    if now - checkIn >= 270 or firstRun then
         checkIn = now
         return true
     end
@@ -150,7 +150,7 @@ local function CheckStale()
             found = true
             break
         else
-            if now - groupData[i].Check > 120 then
+            if now - groupData[i].Check > 300 then
                 table.remove(groupData, i)
                 found = true
                 break
@@ -189,7 +189,7 @@ local function sortedBoxes(boxes)
 end
 
 --create mailbox for actors to send messages to
-function RegisterActor()
+local function RegisterActor()
     Actor = actors.register('aa_party', function(message)
         local MemberEntry = message()
         local subject = MemberEntry.Subject or 'Update'
@@ -449,9 +449,12 @@ local function AA_Party_GUI()
                 end
                 ImGui.EndPopup()
             end
+            LoadTheme.EndTheme(ColorCount, StyleCount)
+            imgui.End()
+        else
+            LoadTheme.EndTheme(ColorCount, StyleCount)
+            imgui.End()
         end
-        LoadTheme.EndTheme(ColorCount, StyleCount)
-        imgui.End()
     end
 
 
@@ -611,8 +614,9 @@ end
 
 local function init()
     ME = mq.TLO.Me.DisplayName()
+    currZone = mq.TLO.Zone.ID()
+    lastZone = currZone
     firstRun = true
-    mq.delay(10000, function () return mq.TLO.Me.Zoning() == false end )
     checkArgs(args)
     mq.bind('/aaparty', processCommand)
     loadSettings()
@@ -629,7 +633,11 @@ end
 local function mainLoop()
     while RUNNING do
         if  mq.TLO.EverQuest.GameState() ~= "INGAME" then SayGoodBye() print("\aw[\atAA Party\ax] \arNot in game, \aoSaying \ayGoodbye\ax and Shutting Down...") mq.exit() end
-        mq.delay(10000, function () return mq.TLO.Me.Zoning() == false end )
+        currZone = mq.TLO.Zone.ID()
+        if currZone ~= lastZone then
+            mq.delay(1000)
+            lastZone = currZone
+        end
         getMyAA()       
         mq.delay(50)
         CheckStale()
