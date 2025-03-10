@@ -1,10 +1,7 @@
 local mq = require('mq')
 local ImGui = require('ImGui')
 local CommonUtils = require('mq.Utils')
-if MyUI_PackageMan == nil then
-	MyUI_PackageMan = require('mq.PackageMan')
-end
-
+CommonUtils.Colors = require('lib.colors')
 CommonUtils.Animation_Item = mq.FindTextureAnimation('A_DragItem')
 CommonUtils.Animation_Spell = mq.FindTextureAnimation('A_SpellIcons')
 
@@ -112,6 +109,17 @@ function CommonUtils.PrintOutput(mychat_tab, main_console, msg, ...)
 	end
 end
 
+function CommonUtils.GetNextID(table)
+	local maxID = 0
+	for k, _ in pairs(table) do
+		local numericId = tonumber(k)
+		if numericId and numericId > maxID then
+			maxID = numericId
+		end
+	end
+	return maxID + 1
+end
+
 --- Takes in a table or sorted index,key pairs and returns a sorted table of keys based on the number of columns to sorty by.
 ---
 ---This will keep your table sorted by columns instead of rows.
@@ -158,6 +166,21 @@ function CommonUtils.SortKeys(input_table)
 
 	table.sort(keys) -- Sort the keys
 	return keys
+end
+
+function CommonUtils.Deepcopy(orig)
+	local orig_type = type(orig)
+	local copy
+	if orig_type == 'table' then
+		copy = {}
+		for orig_key, orig_value in next, orig, nil do
+			copy[CommonUtils.Deepcopy(orig_key)] = CommonUtils.Deepcopy(orig_value)
+		end
+		setmetatable(copy, CommonUtils.Deepcopy(getmetatable(orig)))
+	else -- number, string, boolean, etc
+		copy = orig
+	end
+	return copy
 end
 
 ---
@@ -227,107 +250,185 @@ function CommonUtils.AppendColoredTimestamp(console, timestamp, text, textColor,
 end
 
 function CommonUtils.GiveItem(target_id)
+	if target_id == nil then return end
 	if ImGui.IsMouseReleased(ImGuiMouseButton.Left) then
 		mq.cmdf("/target id %s", target_id)
 		if mq.TLO.Cursor() then
-			if mq.TLO.Target.Distance() > 10 then
-				mq.cmdf("/multiline ; /tar id %s; /timed 5, /nav id %s dist=10; /timed 20, /click left target", target_id, target_id)
-			else
-				mq.cmdf('/multiline ; /tar id %s; /timed 2, /face; /timed 5, /click left target', target_id)
-			end
+			mq.cmdf('/multiline ; /tar id %s; /timed 5, /click left target', target_id)
 		end
 	end
 end
 
---- File Picker Dialog Stuff --
-
-CommonUtils.SelectedFilePath = string.format('%s/', mq.TLO.MacroQuest.Path()) -- Default config folder path prefix
-CommonUtils.CurrentDirectory = mq.TLO.MacroQuest.Path()
-CommonUtils.SelectedFile = nil
-
-local lfs = MyUI_PackageMan.Require('luafilesystem', 'lfs')
-CommonUtils.ShowSaveFileSelector = false
-CommonUtils.ShowOpenFileSelector = false
-
--- Function to get the contents of a directory
-function CommonUtils.GetDirectoryContents(path)
-	local folders = {}
-	local files = {}
-	for file in lfs.dir(path) do
-		if file ~= "." and file ~= ".." then
-			local f = path .. '/' .. file
-			local attr = lfs.attributes(f)
-			if attr.mode == "directory" then
-				table.insert(folders, file)
-			elseif attr.mode == "file" then
-				table.insert(files, file)
-			end
-		end
+function CommonUtils.MaskName(name)
+	local maskedName = name
+	if maskedName ~= nil then
+		maskedName = maskedName:gsub("([A-Za-z])", "X")
 	end
-	return folders, files
+	return maskedName
 end
 
--- Function to draw the folder button tree
-function CommonUtils.DrawFolderButtonTree(currentPath)
-	local folders = {}
-	for folder in string.gmatch(currentPath, "[^/]+") do
-		table.insert(folders, folder)
-	end
+-- --- File Picker Dialog Stuff --
 
-	local path = ""
-	for i, folder in ipairs(folders) do
-		path = path .. folder .. "/"
-		ImGui.PushStyleColor(ImGuiCol.Button, ImVec4(0.2, 0.2, 0.2, 1))
-		local btnLblFolder = string.format("^%s", mq.TLO.MacroQuest.Path())
-		btnLblFolder = folder:gsub(btnLblFolder, "...")
-		if ImGui.Button(btnLblFolder) then
-			CommonUtils.CurrentDirectory = path:gsub("/$", "")
-		end
-		ImGui.PopStyleColor()
-		if i < #folders then
-			ImGui.SameLine()
-			ImGui.Text("/")
-			ImGui.SameLine()
-		end
-	end
+-- CommonUtils.SelectedFilePath = string.format('%s/', mq.TLO.MacroQuest.Path()) -- Default config folder path prefix
+-- CommonUtils.CurrentDirectory = mq.TLO.MacroQuest.Path()
+-- CommonUtils.SelectedFile = nil
+
+-- local lfs = MyUI_PackageMan.Require('luafilesystem', 'lfs')
+-- CommonUtils.ShowSaveFileSelector = false
+-- CommonUtils.ShowOpenFileSelector = false
+
+-- -- Function to get the contents of a directory
+-- function CommonUtils.GetDirectoryContents(path)
+-- 	local folders = {}
+-- 	local files = {}
+-- 	for file in lfs.dir(path) do
+-- 		if file ~= "." and file ~= ".." then
+-- 			local f = path .. '/' .. file
+-- 			local attr = lfs.attributes(f)
+-- 			if attr.mode == "directory" then
+-- 				table.insert(folders, file)
+-- 			elseif attr.mode == "file" then
+-- 				table.insert(files, file)
+-- 			end
+-- 		end
+-- 	end
+-- 	return folders, files
+-- end
+
+-- -- Function to draw the folder button tree
+-- function CommonUtils.DrawFolderButtonTree(currentPath)
+-- 	local folders = {}
+-- 	for folder in string.gmatch(currentPath, "[^/]+") do
+-- 		table.insert(folders, folder)
+-- 	end
+
+-- 	local path = ""
+-- 	for i, folder in ipairs(folders) do
+-- 		path = path .. folder .. "/"
+-- 		ImGui.PushStyleColor(ImGuiCol.Button, ImVec4(0.2, 0.2, 0.2, 1))
+-- 		local btnLblFolder = string.format("^%s", mq.TLO.MacroQuest.Path())
+-- 		btnLblFolder = folder:gsub(btnLblFolder, "...")
+-- 		if ImGui.Button(btnLblFolder) then
+-- 			CommonUtils.CurrentDirectory = path:gsub("/$", "")
+-- 		end
+-- 		ImGui.PopStyleColor()
+-- 		if i < #folders then
+-- 			ImGui.SameLine()
+-- 			ImGui.Text("/")
+-- 			ImGui.SameLine()
+-- 		end
+-- 	end
+-- end
+
+-- -- Function to draw the file selector
+-- function CommonUtils.DrawFileSelector()
+-- 	-- CommonUtils.DrawFolderButtonTree(CommonUtils.CurrentDirectory)
+-- 	ImGui.Separator()
+-- 	local folders, files = CommonUtils.GetDirectoryContents(CommonUtils.CurrentDirectory)
+-- 	if CommonUtils.CurrentDirectory ~= mq.TLO.MacroQuest.Path() then
+-- 		if ImGui.Button("Back") then
+-- 			CommonUtils.CurrentDirectory = CommonUtils.CurrentDirectory:match("(.*)/[^/]+$")
+-- 		end
+-- 		ImGui.SameLine()
+-- 	end
+-- 	local tmpFolder = CommonUtils.CurrentDirectory:gsub(mq.TLO.MacroQuest.Path() .. "/", "")
+-- 	ImGui.SetNextItemWidth(180)
+-- 	if ImGui.BeginCombo("Select Folder", tmpFolder) then
+-- 		for _, folder in ipairs(folders) do
+-- 			if ImGui.Selectable(folder) then
+-- 				CommonUtils.CurrentDirectory = CommonUtils.CurrentDirectory .. '/' .. folder
+-- 			end
+-- 		end
+-- 		ImGui.EndCombo()
+-- 	end
+
+-- 	local tmpfile = CommonUtils.SelectedFilePath:gsub(CommonUtils.CurrentDirectory .. "/", "")
+-- 	ImGui.SetNextItemWidth(180)
+-- 	if ImGui.BeginCombo("Select File", tmpfile or "Select a file") then
+-- 		for _, file in ipairs(files) do
+-- 			if ImGui.Selectable(file) then
+-- 				CommonUtils.SelectedFile = file
+-- 				CommonUtils.SelectedFilePath = CommonUtils.CurrentDirectory .. '/' .. CommonUtils.SelectedFile
+-- 				CommonUtils.ShowOpenFileSelector = false
+-- 			end
+-- 		end
+-- 		ImGui.EndCombo()
+-- 	end
+-- 	if ImGui.Button('Cancel##Open') then
+-- 		CommonUtils.ShowOpenFileSelector = false
+-- 	end
+-- end
+function CommonUtils.directions(heading)
+	-- convert headings from letter values to degrees
+	local dirToDeg = {
+		N = 0,
+		NEN = 22.5,
+		NE = 45,
+		ENE = 67.5,
+		E = 90,
+		ESE = 112.5,
+		SE = 135,
+		SES = 157.5,
+		S = 180,
+		SWS = 202.5,
+		SW = 225,
+		WSW = 247.5,
+		W = 270,
+		WNW = 292.5,
+		NW = 315,
+		NWN = 337.5,
+	}
+	return dirToDeg[heading] or 0 -- Returns the degree value for the given direction, defaulting to 0 if not found
 end
 
--- Function to draw the file selector
-function CommonUtils.DrawFileSelector()
-	-- CommonUtils.DrawFolderButtonTree(CommonUtils.CurrentDirectory)
-	ImGui.Separator()
-	local folders, files = CommonUtils.GetDirectoryContents(CommonUtils.CurrentDirectory)
-	if CommonUtils.CurrentDirectory ~= mq.TLO.MacroQuest.Path() then
-		if ImGui.Button("Back") then
-			CommonUtils.CurrentDirectory = CommonUtils.CurrentDirectory:match("(.*)/[^/]+$")
-		end
-		ImGui.SameLine()
-	end
-	local tmpFolder = CommonUtils.CurrentDirectory:gsub(mq.TLO.MacroQuest.Path() .. "/", "")
-	ImGui.SetNextItemWidth(180)
-	if ImGui.BeginCombo("Select Folder", tmpFolder) then
-		for _, folder in ipairs(folders) do
-			if ImGui.Selectable(folder) then
-				CommonUtils.CurrentDirectory = CommonUtils.CurrentDirectory .. '/' .. folder
-			end
-		end
-		ImGui.EndCombo()
-	end
+-- Tighter relative direction code for when I make better arrows.
+function CommonUtils.getRelativeDirection(spawnDir)
+	local meHeading = CommonUtils.directions(mq.TLO.Me.Heading())
+	local spawnHeadingTo = CommonUtils.directions(spawnDir)
+	local difference = spawnHeadingTo - meHeading
+	difference = (difference + 360) % 360
+	return difference
+end
 
-	local tmpfile = CommonUtils.SelectedFilePath:gsub(CommonUtils.CurrentDirectory .. "/", "")
-	ImGui.SetNextItemWidth(180)
-	if ImGui.BeginCombo("Select File", tmpfile or "Select a file") then
-		for _, file in ipairs(files) do
-			if ImGui.Selectable(file) then
-				CommonUtils.SelectedFile = file
-				CommonUtils.SelectedFilePath = CommonUtils.CurrentDirectory .. '/' .. CommonUtils.SelectedFile
-				CommonUtils.ShowOpenFileSelector = false
-			end
-		end
-		ImGui.EndCombo()
-	end
-	if ImGui.Button('Cancel##Open') then
-		CommonUtils.ShowOpenFileSelector = false
+function CommonUtils.RotatePoint(p, cx, cy, degAngle)
+	local radians = math.rad(degAngle)
+	local cosA = math.cos(radians)
+	local sinA = math.sin(radians)
+	local newX = cosA * (p.x - cx) - sinA * (p.y - cy) + cx
+	local newY = sinA * (p.x - cx) + cosA * (p.y - cy) + cy
+	return ImVec2(newX, newY)
+end
+
+function CommonUtils.DrawArrow(topPoint, width, height, color, angle)
+	local draw_list = ImGui.GetWindowDrawList()
+	local p1 = ImVec2(topPoint.x, topPoint.y)
+	local p2 = ImVec2(topPoint.x + width, topPoint.y + height)
+	local p3 = ImVec2(topPoint.x - width, topPoint.y + height)
+	-- center
+	local center_x = (p1.x + p2.x + p3.x) / 3
+	local center_y = (p1.y + p2.y + p3.y) / 3
+	-- rotate
+	angle = angle + .01
+	p1 = CommonUtils.RotatePoint(p1, center_x, center_y, angle)
+	p2 = CommonUtils.RotatePoint(p2, center_x, center_y, angle)
+	p3 = CommonUtils.RotatePoint(p3, center_x, center_y, angle)
+	draw_list:AddTriangleFilled(p1, p2, p3, ImGui.GetColorU32(color))
+end
+
+function CommonUtils.ColorDistance(distance)
+	local DistColorRanges = {
+		orange = 600, -- distance the color changes from green to orange
+		red = 1200, -- distance the color changes from orange to red
+	}
+	if distance < DistColorRanges.orange then
+		-- Green color for Close Range
+		return CommonUtils.Colors.color('green')
+	elseif distance >= DistColorRanges.orange and distance <= DistColorRanges.red then
+		-- Orange color for Mid Range
+		return CommonUtils.Colors.color('orange')
+	else
+		-- Red color for Far Distance
+		return CommonUtils.Colors.color('red')
 	end
 end
 
